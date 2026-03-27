@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ClipboardList, Trash2, Filter } from "lucide-react";
 import {
   generateMockEntries,
@@ -9,8 +9,12 @@ import {
 } from "@/lib/nutrition";
 
 export default function FoodLogPage() {
-  const [entries, setEntries] = useState<NutritionEntry[]>(generateMockEntries());
+  const [entries, setEntries] = useState<NutritionEntry[]>([]);
   const [filter, setFilter] = useState<string>("all");
+
+  useEffect(() => {
+    setEntries(generateMockEntries());
+  }, []);
 
   const filteredEntries =
     filter === "all"

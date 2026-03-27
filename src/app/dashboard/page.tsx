@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Flame,
   TrendingUp,
@@ -17,6 +17,7 @@ import {
   calculateProgress,
   getMealTypeIcon,
   DEFAULT_GOALS,
+  type NutritionEntry,
 } from "@/lib/nutrition";
 import {
   BarChart,
@@ -29,8 +30,18 @@ import {
 } from "recharts";
 
 export default function DashboardPage() {
-  const [entries] = useState(generateMockEntries());
-  const weeklyData = useMemo(() => generateWeeklyData(), []);
+  const [entries, setEntries] = useState<NutritionEntry[] | null>(null);
+  const [weeklyData, setWeeklyData] = useState<ReturnType<typeof generateWeeklyData> | null>(null);
+  
+  useEffect(() => {
+    setEntries(generateMockEntries());
+    setWeeklyData(generateWeeklyData());
+  }, []);
+
+  if (!entries || !weeklyData) {
+    return <div className="p-6 md:p-8 max-w-7xl mx-auto">Loading...</div>;
+  }
+
   const totals = calculateDailyTotals(entries);
 
   const macroCards = [
