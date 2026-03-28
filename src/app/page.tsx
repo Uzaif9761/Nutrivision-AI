@@ -31,11 +31,8 @@ export default function Home() {
             <a href="#stats" className="hover:text-[var(--accent)] transition-colors">Impact</a>
           </div>
           <div className="flex items-center gap-3">
-            <Link href="/login" className="btn-secondary !py-2 !px-5 text-sm">
-              Log In
-            </Link>
-            <Link href="/signup" className="btn-primary !py-2 !px-5 text-sm">
-              Get Started <ArrowRight className="w-4 h-4" />
+            <Link href="/scan" className="btn-primary !py-2 !px-5 text-sm">
+              Scan Now <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
         </div>
@@ -81,11 +78,11 @@ export default function Home() {
 
           {/* CTAs */}
           <div className="fade-in-up fade-in-up-delay-3 flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link href="/signup" className="btn-primary text-lg !px-8 !py-4">
-              Start Tracking Free <ArrowRight className="w-5 h-5" />
+            <Link href="/scan" className="btn-primary text-lg !px-8 !py-4">
+              Start Scanning <ArrowRight className="w-5 h-5" />
             </Link>
             <Link href="/dashboard" className="btn-secondary text-lg !px-8 !py-4">
-              View Demo Dashboard
+              View Dashboard
             </Link>
           </div>
 
