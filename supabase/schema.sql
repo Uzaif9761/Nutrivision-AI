@@ -66,6 +66,47 @@ CREATE TABLE IF NOT EXISTS daily_goals (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- ─────────────────────────────────────────────────────────────────────────────
+-- IFCT 2017 — Indian Food Composition Tables Database
+-- STRICT COMPLIANCE: This is the ONLY source for nutrition data
+-- ─────────────────────────────────────────────────────────────────────────────
+
+-- ── IFCT 2017 Foods ──
+CREATE TABLE IF NOT EXISTS ifct2017_foods (
+  id TEXT PRIMARY KEY,
+  food_name TEXT NOT NULL UNIQUE,
+  food_name_hindi TEXT,
+  food_group TEXT NOT NULL,
+  serving_size_g INT DEFAULT 100,
+  energy_kcal INT NOT NULL,
+  protein_g FLOAT NOT NULL,
+  fat_g FLOAT NOT NULL,
+  carbohydrates_g FLOAT NOT NULL,
+  fiber_g FLOAT DEFAULT 0,
+  calcium_mg FLOAT,
+  iron_mg FLOAT,
+  vitamin_a_iu INT,
+  vitamin_c_mg FLOAT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- ── IFCT 2017 Query Audit Log ──
+CREATE TABLE IF NOT EXISTS ifct2017_query_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  search_term TEXT NOT NULL,
+  found BOOLEAN DEFAULT FALSE,
+  matched_food_name TEXT,
+  match_confidence FLOAT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Create indexes for performance
+CREATE INDEX IF NOT EXISTS idx_ifct2017_foods_name ON ifct2017_foods(food_name);
+CREATE INDEX IF NOT EXISTS idx_ifct2017_foods_group ON ifct2017_foods(food_group);
+CREATE INDEX IF NOT EXISTS idx_ifct2017_query_logs_user ON ifct2017_query_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_ifct2017_query_logs_created ON ifct2017_query_logs(created_at);
+
 -- ═══════════════════════════════════════════
 -- Row Level Security (RLS)
 -- ═══════════════════════════════════════════

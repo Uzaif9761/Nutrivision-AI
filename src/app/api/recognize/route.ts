@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { recognizeFood } from "@/lib/replicate";
+import { recognizeFood } from "@/lib/yolo";
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,22 +17,44 @@ export async function POST(request: NextRequest) {
         : `data:image/jpeg;base64,${image_base64}`;
     } else {
       return NextResponse.json(
-        { error: "No image provided. Send image_url or image_base64." },
+        {
+          success: false,
+          error: "No image provided. Send image_url or image_base64.",
+        },
         { status: 400 }
       );
     }
 
     const result = await recognizeFood(imageInput);
 
+    // STRICT COMPLIANCE: All responses must indicate IFCT 2017 source
     return NextResponse.json({
-      success: true,
-      data: result,
+      success: result.food_name !== "" && result.food_name !== "Error",
+      data: {
+        food_name: result.food_name,
+        confidence: result.confidence,
+        calories: result.calories,
+        protein_g: result.protein_g,
+        carbs_g: result.carbs_g,
+        fat_g: result.fat_g,
+        fiber_g: result.fiber_g,
+        description: result.description,
+        source: "IFCT 2017", // Always IFCT 2017
+        ifct_source: result.ifct_source,
+      },
+      error: result.setup_error || null,
     });
   } catch (error: unknown) {
     console.error("Food recognition error:", error);
-    const message = error instanceof Error ? error.message : "Recognition failed";
+    const message =
+      error instanceof Error ? error.message : "Recognition failed";
+
     return NextResponse.json(
-      { error: message },
+      {
+        success: false,
+        error: message,
+        source: "IFCT 2017",
+      },
       { status: 500 }
     );
   }
