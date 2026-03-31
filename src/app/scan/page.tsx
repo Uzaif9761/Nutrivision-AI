@@ -22,6 +22,8 @@ interface ScanResult {
   fat_g: number;
   fiber_g: number;
   description: string;
+  suggestion?: string;
+  manual_input?: boolean;
 }
 
 export default function ScanPage() {
@@ -32,6 +34,7 @@ export default function ScanPage() {
   const [logged, setLogged] = useState(false);
   const [mealType, setMealType] = useState<string>("lunch");
   const [dragOver, setDragOver] = useState(false);
+  const [manualFoodInput, setManualFoodInput] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = useCallback((file: File) => {
@@ -56,44 +59,49 @@ export default function ScanPage() {
     [handleFile]
   );
 
-  const handleScan = async () => {
-    if (!image) return;
+  const handleScan = async (manualName?: string) => {
+    if (!image && !manualName) return;
     setScanning(true);
     setResult(null);
 
     try {
+      const payload: any = {};
+      if (image) payload.image_base64 = image;
+      if (manualName) payload.manual_food_name = manualName;
+
       const res = await fetch("/api/recognize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image_base64: image }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (data.success) {
         setResult(data.data);
       } else {
-        // Demo fallback
+        // Show error with suggestion
         setResult({
-          food_name: "Grilled Chicken Bowl",
-          confidence: 0.92,
-          calories: 480,
-          protein_g: 38,
-          carbs_g: 42,
-          fat_g: 16,
-          fiber_g: 6,
-          description: "A healthy grain bowl with grilled chicken, vegetables, and quinoa.",
+          food_name: manualName || "Unknown",
+          confidence: 0,
+          calories: 0,
+          protein_g: 0,
+          carbs_g: 0,
+          fat_g: 0,
+          fiber_g: 0,
+          description: data.data?.description || data.error || "Could not identify this food. Try typing the food name instead.",
+          suggestion: data.data?.suggestion,
         });
       }
-    } catch {
-      // Demo fallback result
+    } catch (error) {
       setResult({
-        food_name: "Grilled Chicken Bowl",
-        confidence: 0.92,
-        calories: 480,
-        protein_g: 38,
-        carbs_g: 42,
-        fat_g: 16,
-        fiber_g: 6,
-        description: "A healthy grain bowl with grilled chicken, vegetables, and quinoa.",
+        food_name: manualName || "Error",
+        confidence: 0,
+        calories: 0,
+        protein_g: 0,
+        carbs_g: 0,
+        fat_g: 0,
+        fiber_g: 0,
+        description: "Recognition failed. Try entering the food name manually (e.g., Roti sabji, Butter chicken).",
+        suggestion: "Popular foods: Roti, Chapati, Dal, Rice, Biryani, Chicken, Paneer, Samosa",
       });
     } finally {
       setScanning(false);
@@ -137,6 +145,7 @@ export default function ScanPage() {
     setImage(null);
     setResult(null);
     setLogged(false);
+    setManualFoodInput("");
   };
 
   return (
@@ -148,12 +157,53 @@ export default function ScanPage() {
           Food Scanner
         </h1>
         <p className="text-[var(--muted)] mt-1">
-          Upload a photo of your meal and let AI analyze the nutrition.
+          Upload a photo or type the food name for AI-powered nutrition analysis from IFCT 2017.
+        </p>
+      </div>
+
+      {/* Manual Input Section */}
+      <div className="glass-card p-5 space-y-3 border border-[rgba(56,239,125,0.1)] bg-[rgba(56,239,125,0.02)]">
+        <div className="flex items-center gap-2">
+          <div className="w-5 h-5 rounded-full bg-[rgba(56,239,125,0.2)] flex items-center justify-center">
+            <span className="text-xs text-[var(--accent)] font-bold">📝</span>
+          </div>
+          <h3 className="font-semibold text-sm">Or Type the Food Name</h3>
+        </div>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            placeholder="e.g., Roti sabji, Butter chicken, Dal, Chapati with ghee..."
+            value={manualFoodInput}
+            onChange={(e) => setManualFoodInput(e.target.value)}
+            onKeyPress={(e) => {
+              if (e.key === "Enter" && manualFoodInput.trim()) {
+                handleScan(manualFoodInput);
+                setManualFoodInput("");
+              }
+            }}
+            disabled={scanning}
+            className="flex-1 px-3 py-2.5 text-sm rounded-lg bg-[rgba(255,255,255,0.05)] border border-[rgba(56,239,125,0.2)] text-[var(--text)] placeholder-[rgba(139,148,158,0.4)] focus:outline-none focus:ring-2 focus:ring-[rgba(56,239,125,0.5)] focus:border-transparent transition-all"
+          />
+          <button
+            onClick={() => {
+              if (manualFoodInput.trim()) {
+                handleScan(manualFoodInput);
+                setManualFoodInput("");
+              }
+            }}
+            disabled={scanning || !manualFoodInput.trim()}
+            className="px-4 py-2.5 bg-[rgba(56,239,125,0.15)] text-[var(--accent)] rounded-lg font-medium text-sm border border-[rgba(56,239,125,0.3)] hover:bg-[rgba(56,239,125,0.25)] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+          >
+            {scanning ? <Loader2 className="w-4 h-4 animate-spin" /> : "Search"}
+          </button>
+        </div>
+        <p className="text-xs text-[rgba(139,148,158,0.6)]">
+          ✓ Supports: Roti, Chapati, Dal, Rice, Biryani, Chicken, Paneer, Samosa, and more from IFCT 2017
         </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* ═══ Upload Zone ═══ */}
+        {/* Upload Zone */}
         <div>
           {!image ? (
             <div
@@ -235,7 +285,7 @@ export default function ScanPage() {
                 </div>
 
                 {!result && !scanning && (
-                  <button onClick={handleScan} className="btn-primary w-full justify-center">
+                  <button onClick={() => handleScan()} className="btn-primary w-full justify-center">
                     <Sparkles className="w-4 h-4" /> Analyze with AI
                   </button>
                 )}
@@ -251,7 +301,7 @@ export default function ScanPage() {
           )}
         </div>
 
-        {/* ═══ Results ═══ */}
+        {/* Results */}
         <div>
           {result ? (
             <div className="glass-card p-6 space-y-5 fade-in-up">
@@ -262,37 +312,48 @@ export default function ScanPage() {
                   <h2 className="text-xl font-bold">{result.food_name}</h2>
                 </div>
                 <p className="text-sm text-[var(--muted)]">{result.description}</p>
-                <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[rgba(56,239,125,0.08)] text-xs">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" />
-                  {Math.round(result.confidence * 100)}% confidence
-                </div>
-              </div>
-
-              {/* Calorie highlight */}
-              <div className="glass-card p-4 text-center">
-                <p className="text-3xl font-extrabold gradient-text">{result.calories}</p>
-                <p className="text-sm text-[var(--muted)]">Calories per serving</p>
-              </div>
-
-              {/* Macros Grid */}
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { label: "Protein", value: result.protein_g, unit: "g", color: "#0ea5e9" },
-                  { label: "Carbs", value: result.carbs_g, unit: "g", color: "#f0883e" },
-                  { label: "Fat", value: result.fat_g, unit: "g", color: "#a78bfa" },
-                  { label: "Fiber", value: result.fiber_g, unit: "g", color: "#38ef7d" },
-                ].map((macro) => (
-                  <div key={macro.label} className="glass-card p-3 text-center">
-                    <p className="text-lg font-bold" style={{ color: macro.color }}>
-                      {macro.value}{macro.unit}
-                    </p>
-                    <p className="text-xs text-[var(--muted)]">{macro.label}</p>
+                {result.confidence > 0 && (
+                  <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[rgba(56,239,125,0.08)] text-xs">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" />
+                    {Math.round(result.confidence * 100)}% confidence {result.manual_input && "(manual input)"}
                   </div>
-                ))}
+                )}
+                {result.suggestion && (
+                  <div className="mt-3 p-2 rounded-lg bg-[rgba(248,113,113,0.08)] border border-[rgba(248,113,113,0.2)] text-xs text-[rgba(248,113,113,0.8)]">
+                    💡 {result.suggestion}
+                  </div>
+                )}
               </div>
+
+              {result.confidence > 0 && (
+                <>
+                  {/* Calorie highlight */}
+                  <div className="glass-card p-4 text-center">
+                    <p className="text-3xl font-extrabold gradient-text">{result.calories}</p>
+                    <p className="text-sm text-[var(--muted)]">Calories per serving</p>
+                  </div>
+
+                  {/* Macros Grid */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { label: "Protein", value: result.protein_g, unit: "g", color: "#0ea5e9" },
+                      { label: "Carbs", value: result.carbs_g, unit: "g", color: "#f0883e" },
+                      { label: "Fat", value: result.fat_g, unit: "g", color: "#a78bfa" },
+                      { label: "Fiber", value: result.fiber_g, unit: "g", color: "#38ef7d" },
+                    ].map((macro) => (
+                      <div key={macro.label} className="glass-card p-3 text-center">
+                        <p className="text-lg font-bold" style={{ color: macro.color }}>
+                          {macro.value}{macro.unit}
+                        </p>
+                        <p className="text-xs text-[var(--muted)]">{macro.label}</p>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
 
               {/* Log Button */}
-              {!logged ? (
+              {result.confidence > 0 && !logged ? (
                 <button
                   onClick={handleLog}
                   disabled={logging}
@@ -306,7 +367,7 @@ export default function ScanPage() {
                     </>
                   )}
                 </button>
-              ) : (
+              ) : result.confidence > 0 && logged ? (
                 <div className="space-y-3">
                   <div className="flex items-center justify-center gap-2 py-3 rounded-xl bg-[rgba(56,239,125,0.08)] text-[var(--accent)] text-sm font-medium">
                     <Check className="w-4 h-4" /> Meal Logged Successfully!
@@ -320,7 +381,7 @@ export default function ScanPage() {
                     </Link>
                   </div>
                 </div>
-              )}
+              ) : null}
             </div>
           ) : (
             <div className="glass-card p-8 min-h-[360px] flex flex-col items-center justify-center text-center">
@@ -331,8 +392,7 @@ export default function ScanPage() {
                 AI Results Will Appear Here
               </h3>
               <p className="text-sm text-[rgba(139,148,158,0.6)] max-w-xs">
-                Upload a food photo and click &quot;Analyze with AI&quot; to get instant
-                nutrition breakdown.
+                Upload a food photo or type the food name and click Search to get instant nutrition breakdown from IFCT 2017.
               </p>
             </div>
           )}
