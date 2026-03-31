@@ -58,10 +58,10 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 🟢 STEP 3: VALIDATE DATA (EXTRA SAFETY)
+    // 🟢 STEP 3: VALIDATE DATA (FIXED ✅)
     if (
-      nutrition.energy === undefined ||
-      nutrition.protein === undefined
+      nutrition.energy_kcal === undefined ||
+      nutrition.protein_g === undefined
     ) {
       return NextResponse.json({
         success: false,
@@ -69,17 +69,17 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // ✅ STEP 4: RETURN CLEAN IFCT DATA ONLY
+    // ✅ STEP 4: RETURN CLEAN IFCT DATA ONLY (FIXED ✅)
     return NextResponse.json({
       success: true,
       data: {
         food_name: nutrition.food_name,
         confidence: nutrition.confidence ?? 1,
-        calories: nutrition.energy,
-        protein_g: nutrition.protein,
-        carbs_g: nutrition.carbohydrates,
-        fat_g: nutrition.fat,
-        fiber_g: nutrition.fiber,
+        calories: nutrition.energy_kcal,
+        protein_g: nutrition.protein_g,
+        carbs_g: nutrition.carbohydrates_g,
+        fat_g: nutrition.fat_g,
+        fiber_g: nutrition.fiber_g,
         description: `${nutrition.food_name} (IFCT 2017 Verified)`,
 
         // 🔒 Compliance flags
