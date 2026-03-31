@@ -29,17 +29,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: "❌ No input provided (image or food name required)",
+          error: "❌ No input provided",
         },
         { status: 400 }
       );
     }
 
-    // 🟢 STEP 2: STRICT IFCT LOOKUP
+    // 🟢 STEP 2: IFCT LOOKUP
     const nutrition = await compositions(foodName);
 
-    // ❌ BLOCK NON-IFCT RESULTS
-    if (!nutrition.found || !nutrition.food_name) {
+    // ❌ BLOCK NON-IFCT
+    if (!nutrition.found) {
       return NextResponse.json({
         success: false,
         data: {
@@ -50,39 +50,35 @@ export async function POST(request: NextRequest) {
           carbs_g: 0,
           fat_g: 0,
           fiber_g: 0,
-          description: `❌ '${foodName}' is not available in IFCT 2017 database.`,
-          suggestion:
-            "Try: Roti, Chapati, Dal, Rice, Biryani, Paneer, Idli, Dosa",
+          description: `❌ '${foodName}' not found in IFCT 2017`,
         },
-        source: "IFCT 2017",
       });
     }
 
-    // 🟢 STEP 3: VALIDATE DATA ✅ (FIXED)
+    // 🟢 STEP 3: VALIDATION (FIXED ✅)
     if (
-      nutrition.energy === undefined ||
-      nutrition.protein === undefined
+      nutrition.calories === undefined ||
+      nutrition.protein_g === undefined
     ) {
       return NextResponse.json({
         success: false,
-        error: "❌ Invalid nutrition data from IFCT",
+        error: "❌ Invalid IFCT data",
       });
     }
 
-    // ✅ STEP 4: RETURN CLEAN IFCT DATA ONLY ✅
+    // ✅ STEP 4: RETURN CLEAN DATA (FIXED ✅)
     return NextResponse.json({
       success: true,
       data: {
         food_name: nutrition.food_name,
-        confidence: nutrition.confidence ?? 1,
-        calories: nutrition.energy,
-        protein_g: nutrition.protein,
-        carbs_g: nutrition.carbohydrates,
-        fat_g: nutrition.fat,
-        fiber_g: nutrition.fiber,
+        confidence: nutrition.match_confidence ?? 1,
+        calories: nutrition.calories,
+        protein_g: nutrition.protein_g,
+        carbs_g: nutrition.carbs_g,
+        fat_g: nutrition.fat_g,
+        fiber_g: nutrition.fiber_g,
         description: `${nutrition.food_name} (IFCT 2017 Verified)`,
         source: "IFCT 2017",
-        ifct_source: true,
       },
     });
   } catch (error) {
@@ -92,7 +88,6 @@ export async function POST(request: NextRequest) {
       {
         success: false,
         error: "❌ Internal server error",
-        source: "IFCT 2017",
       },
       { status: 500 }
     );
