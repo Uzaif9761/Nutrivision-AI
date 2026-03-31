@@ -101,7 +101,7 @@ async function logIFCTQuery(
 ): Promise<void> {
   try {
     const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { data: { user } } = await supabase.auth.getUser();
 
     // Log even if not authenticated (for audit trail)
     const { error } = await supabase.from("ifct2017_query_logs").insert({

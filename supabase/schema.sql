@@ -2,69 +2,32 @@
 -- 🍎 NutriVision AI — Supabase Database Schema
 -- Run this in the Supabase SQL Editor
 -- ═══════════════════════════════════════════
+-- NO AUTH REQUIRED — Anonymous public app
+-- ═══════════════════════════════════════════
 
--- ── Profiles ──
-CREATE TABLE IF NOT EXISTS profiles (
-  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  full_name TEXT,
-  avatar_url TEXT,
-  daily_calorie_target INT DEFAULT 2000,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
-
--- Auto-create profile on user signup
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
-BEGIN
-  INSERT INTO public.profiles (id, full_name, avatar_url)
-  VALUES (
-    NEW.id,
-    NEW.raw_user_meta_data->>'full_name',
-    NEW.raw_user_meta_data->>'avatar_url'
-  );
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
-
--- ── Food Logs ──
-CREATE TABLE IF NOT EXISTS food_logs (
+-- ── Meals (Anonymous-friendly) ──
+-- This table stores meal logs WITHOUT requiring user authentication
+CREATE TABLE IF NOT EXISTS meals (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
   food_name TEXT NOT NULL,
   image_url TEXT,
   confidence FLOAT,
   meal_type TEXT CHECK (meal_type IN ('breakfast', 'lunch', 'dinner', 'snack')) DEFAULT 'snack',
-  logged_at TIMESTAMPTZ DEFAULT now(),
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
--- ── Nutrition Data ──
-CREATE TABLE IF NOT EXISTS nutrition_data (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  food_log_id UUID REFERENCES food_logs(id) ON DELETE CASCADE NOT NULL,
+  quantity_g FLOAT DEFAULT 100,
   calories INT DEFAULT 0,
   protein_g FLOAT DEFAULT 0,
   carbs_g FLOAT DEFAULT 0,
   fat_g FLOAT DEFAULT 0,
-  fiber_g FLOAT DEFAULT 0
+  fiber_g FLOAT DEFAULT 0,
+  ifct_entry_id TEXT,
+  logged_at TIMESTAMPTZ DEFAULT now(),
+  created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- ── Daily Goals ──
-CREATE TABLE IF NOT EXISTS daily_goals (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL UNIQUE,
-  calories INT DEFAULT 2000,
-  protein_g FLOAT DEFAULT 150,
-  carbs_g FLOAT DEFAULT 250,
-  fat_g FLOAT DEFAULT 65,
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
+-- Create indexes for meals table
+CREATE INDEX IF NOT EXISTS idx_meals_created_at ON meals(created_at);
+CREATE INDEX IF NOT EXISTS idx_meals_logged_at ON meals(logged_at);
+CREATE INDEX IF NOT EXISTS idx_meals_ifct_entry_id ON meals(ifct_entry_id);
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- IFCT 2017 — Indian Food Composition Tables Database
@@ -90,10 +53,11 @@ CREATE TABLE IF NOT EXISTS ifct2017_foods (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- ── IFCT 2017 Query Audit Log ──
+-- ──IFCT 2017 Query Audit Log ──
+-- Updated to NOT require user_id (allows anonymous queries)
 CREATE TABLE IF NOT EXISTS ifct2017_query_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  user_id UUID,  -- nullable for anonymous queries
   search_term TEXT NOT NULL,
   found BOOLEAN DEFAULT FALSE,
   matched_food_name TEXT,
@@ -104,89 +68,17 @@ CREATE TABLE IF NOT EXISTS ifct2017_query_logs (
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_ifct2017_foods_name ON ifct2017_foods(food_name);
 CREATE INDEX IF NOT EXISTS idx_ifct2017_foods_group ON ifct2017_foods(food_group);
-CREATE INDEX IF NOT EXISTS idx_ifct2017_query_logs_user ON ifct2017_query_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_ifct2017_query_logs_created ON ifct2017_query_logs(created_at);
 
 -- ═══════════════════════════════════════════
--- Row Level Security (RLS)
+-- Row Level Security (RLS) — PUBLIC ACCESS
 -- ═══════════════════════════════════════════
 
-ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE food_logs ENABLE ROW LEVEL SECURITY;
-ALTER TABLE nutrition_data ENABLE ROW LEVEL SECURITY;
-ALTER TABLE daily_goals ENABLE ROW LEVEL SECURITY;
+-- MEALS: Public insert and select (no auth required)
+ALTER TABLE meals DISABLE ROW LEVEL SECURITY;
 
--- Profiles: users can read/update their own profile
-CREATE POLICY "Users can view own profile"
-  ON profiles FOR SELECT
-  USING (auth.uid() = id);
+-- IFCT 2017 Foods: Read-only public access
+ALTER TABLE ifct2017_foods DISABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can update own profile"
-  ON profiles FOR UPDATE
-  USING (auth.uid() = id);
-
--- Food Logs: users can CRUD their own logs
-CREATE POLICY "Users can view own food logs"
-  ON food_logs FOR SELECT
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert own food logs"
-  ON food_logs FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can delete own food logs"
-  ON food_logs FOR DELETE
-  USING (auth.uid() = user_id);
-
--- Nutrition Data: accessible via food_log ownership
-CREATE POLICY "Users can view own nutrition data"
-  ON nutrition_data FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM food_logs
-      WHERE food_logs.id = nutrition_data.food_log_id
-      AND food_logs.user_id = auth.uid()
-    )
-  );
-
-CREATE POLICY "Users can insert own nutrition data"
-  ON nutrition_data FOR INSERT
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM food_logs
-      WHERE food_logs.id = nutrition_data.food_log_id
-      AND food_logs.user_id = auth.uid()
-    )
-  );
-
-CREATE POLICY "Users can delete own nutrition data"
-  ON nutrition_data FOR DELETE
-  USING (
-    EXISTS (
-      SELECT 1 FROM food_logs
-      WHERE food_logs.id = nutrition_data.food_log_id
-      AND food_logs.user_id = auth.uid()
-    )
-  );
-
--- Daily Goals: users can CRUD their own goals
-CREATE POLICY "Users can view own goals"
-  ON daily_goals FOR SELECT
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert own goals"
-  ON daily_goals FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can update own goals"
-  ON daily_goals FOR UPDATE
-  USING (auth.uid() = user_id);
-
--- ═══════════════════════════════════════════
--- Indexes for Performance
--- ═══════════════════════════════════════════
-
-CREATE INDEX IF NOT EXISTS idx_food_logs_user_id ON food_logs(user_id);
-CREATE INDEX IF NOT EXISTS idx_food_logs_logged_at ON food_logs(logged_at);
-CREATE INDEX IF NOT EXISTS idx_nutrition_data_food_log_id ON nutrition_data(food_log_id);
-CREATE INDEX IF NOT EXISTS idx_daily_goals_user_id ON daily_goals(user_id);
+-- IFCT 2017 Query Logs: Public insert (no auth required)
+ALTER TABLE ifct2017_query_logs DISABLE ROW LEVEL SECURITY;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   Flame,
   TrendingUp,
@@ -32,14 +32,63 @@ import {
 export default function DashboardPage() {
   const [entries, setEntries] = useState<NutritionEntry[] | null>(null);
   const [weeklyData, setWeeklyData] = useState<ReturnType<typeof generateWeeklyData> | null>(null);
+  const [loading, setLoading] = useState(true);
   
   useEffect(() => {
-    setEntries(generateMockEntries());
+    const fetchMeals = async () => {
+      try {
+        // Fetch today's meals
+        const today = new Date().toISOString().split('T')[0];
+        const response = await fetch(`/api/meals?date=${today}&limit=100`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.data && data.data.length > 0) {
+            // Convert meals to nutrition entries format
+            const mealEntries: NutritionEntry[] = data.data.map((meal: Record<string, unknown>) => ({
+              id: meal.id as string,
+              food_name: meal.food_name as string,
+              calories: (meal.calories as number) || 0,
+              protein_g: (meal.protein_g as number) || 0,
+              carbs_g: (meal.carbs_g as number) || 0,
+              fat_g: (meal.fat_g as number) || 0,
+              fiber_g: (meal.fiber_g as number) || 0,
+              meal_type: (meal.meal_type as "breakfast" | "lunch" | "dinner" | "snack") || "snack",
+              image_url: meal.image_url as string | undefined,
+              confidence: (meal.confidence as number) || 0,
+              logged_at: meal.logged_at as string,
+            }));
+            setEntries(mealEntries);
+            setLoading(false);
+            return;
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch meals:", error);
+      }
+      
+      // Fallback to mock data if fetch fails or no data
+      setEntries(generateMockEntries());
+      setLoading(false);
+    };
+
+    fetchMeals();
+  }, []);
+
+  useEffect(() => {
     setWeeklyData(generateWeeklyData());
   }, []);
 
-  if (!entries || !weeklyData) {
-    return <div className="p-6 md:p-8 max-w-7xl mx-auto">Loading...</div>;
+  if (!entries || !weeklyData || loading) {
+    return (
+      <div className="p-6 md:p-8 max-w-7xl mx-auto">
+        <div className="flex items-center justify-center h-96">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 border-2 border-[rgba(56,239,125,0.3)] border-t-[var(--accent)] rounded-full animate-spin" />
+            <p className="text-[var(--muted)]">Loading your nutrition data...</p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const totals = calculateDailyTotals(entries);

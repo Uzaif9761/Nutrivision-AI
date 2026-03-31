@@ -105,16 +105,28 @@ export default function ScanPage() {
     setLogging(true);
 
     try {
-      await fetch("/api/nutrition", {
+      const response = await fetch("/api/meals", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...result,
+          food_name: result.food_name,
           meal_type: mealType,
+          calories: result.calories,
+          protein_g: result.protein_g,
+          carbs_g: result.carbs_g,
+          fat_g: result.fat_g,
+          fiber_g: result.fiber_g,
+          confidence: result.confidence,
+          image_url: image && image.startsWith("data:") ? undefined : image,
         }),
       });
-    } catch {
-      // Silently fail if not connected
+
+      if (!response.ok) {
+        throw new Error(`Failed to log meal: ${response.statusText}`);
+      }
+    } catch (error) {
+      console.error("Error logging meal:", error);
+      // Continue anyway - meal logging is optional
     }
 
     setLogged(true);

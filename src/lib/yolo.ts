@@ -38,7 +38,7 @@ async function detectFood(imageUrl: string): Promise<string[]> {
     // Extract detected food classes from YOLOv8 predictions
     const detections = response.data.results || [];
     const foodItems: string[] = detections
-      .map((det: any) => det.class_name || det.name)
+      .map((det: Record<string, unknown>) => (det.class_name as string) || (det.name as string))
       .filter((name: string) => name);
 
     return foodItems.length > 0 ? foodItems : [];

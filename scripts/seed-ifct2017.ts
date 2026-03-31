@@ -80,7 +80,7 @@ async function main() {
     console.log("─".repeat(50));
 
     const samples = data?.slice(0, 5) || [];
-    samples.forEach((entry: any, idx: number) => {
+    samples.forEach((entry: Record<string, unknown>, idx: number) => {
       console.log(`\n${idx + 1}. ${entry.food_name}`);
       console.log(`   Group: ${entry.food_group}`);
       console.log(
