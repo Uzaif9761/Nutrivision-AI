@@ -59,55 +59,64 @@ export default function ScanPage() {
     [handleFile]
   );
 
-  const handleScan = async (manualName?: string) => {
-    if (!image && !manualName) return;
-    setScanning(true);
-    setResult(null);
+ const handleScan = async (manualName?: string) => {
+  if (!image && !manualName) return;
+  setScanning(true);
+  setResult(null);
 
-    try {
-      const payload: any = {};
-      if (image) payload.image_base64 = image;
-      if (manualName) payload.manual_food_name = manualName;
+  try {
+    const payload: any = {};
+    if (image) payload.image_base64 = image;
+    if (manualName) payload.manual_food_name = manualName;
 
-      const res = await fetch("/api/recognize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setResult(data.data);
-      } else {
-        // Show error with suggestion
-        setResult({
-          food_name: manualName || "Unknown",
-          confidence: 0,
-          calories: 0,
-          protein_g: 0,
-          carbs_g: 0,
-          fat_g: 0,
-          fiber_g: 0,
-          description: data.data?.description || data.error || "Could not identify this food. Try typing the food name instead.",
-          suggestion: data.data?.suggestion,
-        });
+    const res = await fetch("/api/recognize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json();
+
+    console.log("API RESPONSE:", data); // 🔍 debug
+
+    if (data.success && data.data) {
+      const r = data.data;
+
+      // 🚨 STRICT VALIDATION (blocks fake data)
+      const isValidIFCT =
+        r.food_name &&
+        r.calories !== undefined &&
+        r.calories > 0 &&
+        r.protein_g !== undefined;
+
+      if (!isValidIFCT) {
+        throw new Error("Invalid IFCT data");
       }
-    } catch (error) {
-      setResult({
-        food_name: manualName || "Error",
-        confidence: 0,
-        calories: 0,
-        protein_g: 0,
-        carbs_g: 0,
-        fat_g: 0,
-        fiber_g: 0,
-        description: "Recognition failed. Try entering the food name manually (e.g., Roti sabji, Butter chicken).",
-        suggestion: "Popular foods: Roti, Chapati, Dal, Rice, Biryani, Chicken, Paneer, Samosa",
-      });
-    } finally {
-      setScanning(false);
-    }
-  };
 
+      setResult(r);
+    } else {
+      throw new Error(data.error || "Recognition failed");
+    }
+  } catch (error) {
+    console.error("Scan error:", error);
+
+    setResult({
+      food_name: manualName || "Not Found",
+      confidence: 0,
+      calories: 0,
+      protein_g: 0,
+      carbs_g: 0,
+      fat_g: 0,
+      fiber_g: 0,
+      description:
+        "❌ Food not found in IFCT 2017 database. Try typing exact Indian food like 'Roti', 'Dal', 'Rice'.",
+      suggestion:
+        "Try: Roti, Chapati, Dal, Rice, Biryani, Paneer, Samosa",
+    });
+  } finally {
+    setScanning(false);
+  }
+};
   const handleLog = async () => {
     if (!result) return;
     setLogging(true);
