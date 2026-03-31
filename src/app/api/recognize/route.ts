@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     // 🟢 STEP 2: STRICT IFCT LOOKUP
     const nutrition = await compositions(foodName);
 
-    // ❌ BLOCK NON-IFCT RESULTS COMPLETELY
+    // ❌ BLOCK NON-IFCT RESULTS
     if (!nutrition.found || !nutrition.food_name) {
       return NextResponse.json({
         success: false,
@@ -58,10 +58,10 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 🟢 STEP 3: VALIDATE DATA (FIXED ✅)
+    // 🟢 STEP 3: VALIDATE DATA ✅ (FIXED)
     if (
-      nutrition.energy_kcal === undefined ||
-      nutrition.protein_g === undefined
+      nutrition.energy === undefined ||
+      nutrition.protein === undefined
     ) {
       return NextResponse.json({
         success: false,
@@ -69,20 +69,18 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // ✅ STEP 4: RETURN CLEAN IFCT DATA ONLY (FIXED ✅)
+    // ✅ STEP 4: RETURN CLEAN IFCT DATA ONLY ✅
     return NextResponse.json({
       success: true,
       data: {
         food_name: nutrition.food_name,
         confidence: nutrition.confidence ?? 1,
-        calories: nutrition.energy_kcal,
-        protein_g: nutrition.protein_g,
-        carbs_g: nutrition.carbohydrates_g,
-        fat_g: nutrition.fat_g,
-        fiber_g: nutrition.fiber_g,
+        calories: nutrition.energy,
+        protein_g: nutrition.protein,
+        carbs_g: nutrition.carbohydrates,
+        fat_g: nutrition.fat,
+        fiber_g: nutrition.fiber,
         description: `${nutrition.food_name} (IFCT 2017 Verified)`,
-
-        // 🔒 Compliance flags
         source: "IFCT 2017",
         ifct_source: true,
       },
