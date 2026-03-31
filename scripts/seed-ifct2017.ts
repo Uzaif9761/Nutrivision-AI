@@ -247,6 +247,30 @@ const IFCT2017_SEED_DATA = [
     carbohydrates_g: 13.8,
     fiber_g: 1.2,
   },
+  {
+    id: "ifct_roti_sabji_018",
+    food_name: "Roti with vegetables (sabji)",
+    food_name_hindi: "रोटी और सब्जी",
+    food_group: "Prepared Dishes",
+    serving_size_g: 200,
+    energy_kcal: 245,
+    protein_g: 6.8,
+    fat_g: 8.5,
+    carbohydrates_g: 35.2,
+    fiber_g: 4.9,
+  },
+  {
+    id: "ifct_chapati_ghee_019",
+    food_name: "Chapati with ghee",
+    food_name_hindi: "चपाती घी के साथ",
+    food_group: "Breads & Cereals",
+    serving_size_g: 60,
+    energy_kcal: 185,
+    protein_g: 4.5,
+    fat_g: 8.2,
+    carbohydrates_g: 24.5,
+    fiber_g: 3.8,
+  },
 ];
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;

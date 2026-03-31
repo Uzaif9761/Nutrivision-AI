@@ -26,7 +26,7 @@ async function detectFood(imageUrl: string): Promise<string[]> {
       `https://api.ultralytics.com/v1/predict`,
       {
         image: imageUrl,
-        conf: 0.5, // Confidence threshold
+        conf: 0.4, // Lowered confidence threshold for better detection
       },
       {
         headers: {
@@ -37,14 +37,20 @@ async function detectFood(imageUrl: string): Promise<string[]> {
 
     // Extract detected food classes from YOLOv8 predictions
     const detections = response.data.results || [];
-    const foodItems: string[] = detections
+    let foodItems: string[] = detections
       .map((det: Record<string, unknown>) => (det.class_name as string) || (det.name as string))
       .filter((name: string) => name);
+
+    // If detection fails or returns empty, provide helpful guidance
+    if (foodItems.length === 0) {
+      console.warn("No foods detected in image. Check YOLO model is trained on Indian foods.");
+    }
 
     return foodItems.length > 0 ? foodItems : [];
   } catch (error) {
     console.error("YOLOv8 detection error:", error);
-    throw new Error("Failed to detect food items");
+    // Don't throw immediately - try to continue with fallback
+    return [];
   }
 }
 

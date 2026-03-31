@@ -69,6 +69,26 @@ function calculateLevenshteinDistance(str1: string, str2: string): number {
   return track[str2.length][str1.length];
 }
 
+// Food aliases and variants for better matching
+const FOOD_ALIASES: Record<string, string[]> = {
+  "roti": ["roti", "chapati", "rotli", "roti sabji", "roti with sabji", "roti vegetable"],
+  "chapati": ["chapati", "chappati", "chappathi", "roti", "phulka"],
+  "dal": ["dal", "daal", "lentil curry", "lentil", "dahl"],
+  "rice": ["rice", "basmati rice", "basmati", "jasmine rice"],
+  "chicken": ["chicken", "murgh", "murga"],
+  "sabji": ["sabji", "sabzi", "vegetables", "vegetable curry"],
+};
+
+function findAlias(foodName: string): string {
+  const normalized = foodName.toLowerCase().trim();
+  for (const [primary, aliases] of Object.entries(FOOD_ALIASES)) {
+    if (aliases.some(alias => normalized.includes(alias))) {
+      return primary;
+    }
+  }
+  return normalized;
+}
+
 function calculateSimilarity(str1: string, str2: string): number {
   const normalized1 = str1.toLowerCase().trim();
   const normalized2 = str2.toLowerCase().trim();
@@ -78,15 +98,30 @@ function calculateSimilarity(str1: string, str2: string): number {
     return 1.0;
   }
 
+  // Check aliases (e.g., "roti sabji" matches "Roti with vegetables")
+  const alias1 = findAlias(normalized1);
+  const alias2 = findAlias(normalized2);
+  if (alias1 && alias2 && alias1 === alias2) {
+    return 0.92; // High confidence for alias matches
+  }
+
   // Substring match
   if (normalized1.includes(normalized2) || normalized2.includes(normalized1)) {
-    return 0.95;
+    return 0.85;
   }
 
   // Levenshtein distance
   const distance = calculateLevenshteinDistance(normalized1, normalized2);
   const maxLength = Math.max(normalized1.length, normalized2.length);
-  return 1 - distance / maxLength;
+  const similarity = 1 - distance / maxLength;
+  
+  // Boost score for partial word matches (e.g., "roti" in "Roti with vegetables")
+  if (normalized1.split(' ').some(word => normalized2.includes(word)) || 
+      normalized2.split(' ').some(word => normalized1.includes(word))) {
+    return Math.max(similarity, 0.75);
+  }
+  
+  return similarity;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -190,8 +225,8 @@ export async function compositions(
     }
 
     // Step 3: Return result
-    if (bestMatch && bestScore >= 0.6) {
-      // Confidence threshold of 60%
+    if (bestMatch && bestScore >= 0.55) {
+      // Lowered confidence threshold from 60% to 55% for better food detection
       await logIFCTQuery(
         detectedFoodName,
         true,
